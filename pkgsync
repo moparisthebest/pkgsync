@@ -1,0 +1,50 @@
+#!/bin/bash
+
+set -e
+
+[ -e /etc/default/pkgsync ] && . /etc/default/pkgsync
+
+EXCLUSION_LIST="${EXCLUSION_LIST:-/etc/pkgsync/pkg_exclude.list}"
+BLACKLIST_LIST="${BLACKLIST_LIST:-/etc/pkgsync/pkg_blacklist.list}"
+REMOVE_LIST="${REMOVE_LIST:-/etc/pkgsync/pkg_remove.list}"
+INSTALL_LIST="${INSTALL_LIST:-/etc/pkgsync/pkg_install.list}"
+FINISH_SCRIPT="${INSTALL_LIST:-/etc/pkgsync/pkg_finish.sh}"
+TMP_DIR="${TMP_DIR:-/tmp}"
+
+# we really don't care if these exist or not or are empty, we just want empty files if so
+grep -v '^#' "$EXCLUSION_LIST" 2>/dev/null > "$TMP_DIR/pkg_exclude.list" || true
+grep -v '^#' "$BLACKLIST_LIST" 2>/dev/null > "$TMP_DIR/pkg_blacklist.list" || true
+grep -v '^#' "$REMOVE_LIST" 2>/dev/null > "$TMP_DIR/pkg_remove.list" || true
+[ ! -e "$INSTALL_LIST" ] && touch "$INSTALL_LIST"
+
+# get our explicitly installed packages, minus hardware-specific exclusions
+pacman -Qe | awk '{print $1}' | sort | comm -23 - "$TMP_DIR/pkg_exclude.list" > "$TMP_DIR/mypkgs_with_exclusions.txt"
+
+# exclude packages to remove
+comm -23 "$TMP_DIR/mypkgs_with_exclusions.txt" "$TMP_DIR/pkg_remove.list" > "$TMP_DIR/mypkgs_with_exclusions_without_remove.txt"
+
+# list of packages to remove
+comm -12 "$TMP_DIR/mypkgs_with_exclusions.txt" "$TMP_DIR/pkg_remove.list" > "$TMP_DIR/pkg_toremove.list"
+
+# combine our packages with shared installed list, excluding remove
+sort -u "$TMP_DIR/mypkgs_with_exclusions_without_remove.txt" "$INSTALL_LIST" | comm -23 - "$TMP_DIR/pkg_remove.list" > "$TMP_DIR/pkg_installed.list"
+
+# list of packages to install, with our blacklist excluded
+comm -13 "$TMP_DIR/mypkgs_with_exclusions_without_remove.txt" "$TMP_DIR/pkg_installed.list" | comm -23 - "$TMP_DIR/pkg_blacklist.list" > "$TMP_DIR/pkg_toinstall.list"
+
+# offer to install missing packages
+xargs -p --no-run-if-empty pacman -S --needed --noconfirm < "$TMP_DIR/pkg_toinstall.list"
+
+# offer to remove packages
+xargs -p --no-run-if-empty pacman -Ru --noconfirm < "$TMP_DIR/pkg_toremove.list"
+
+# offer to update install list, if it changed
+if [ "$(comm -3 "$TMP_DIR/pkg_installed.list" "$INSTALL_LIST")" != "" ]
+then
+    read -p "Overwrite '$INSTALL_LIST' with new package list and run finish script?..." -n 1 yn
+    [[ $yn =~ ^[Yy]$ ]] && cp "$TMP_DIR/pkg_installed.list" "$INSTALL_LIST"
+    echo
+    [ -x "$FINISH_SCRIPT" ] && "$FINISH_SCRIPT"
+fi
+
+rm -f "$TMP_DIR/pkg_exclude.list" "$TMP_DIR/pkg_blacklist.list" "$TMP_DIR/pkg_remove.list" "$TMP_DIR/mypkgs_with_exclusions.txt" "$TMP_DIR/mypkgs_with_exclusions_without_remove.txt" "$TMP_DIR/pkg_toremove.list" "$TMP_DIR/pkg_installed.list" "$TMP_DIR/pkg_toinstall.list"

@@ -1,0 +1,20 @@
+# this is the configuration for pkgsync
+# it uses these defaults, but you can change them
+
+# packages on this system to exclude from shared install list
+#EXCLUSION_LIST=/etc/pkgsync/pkg_exclude.list
+
+# packages in shared install list to not install on this system
+#BLACKLIST_LIST=/etc/pkgsync/pkg_blacklist.list
+
+# packages to remove from all systems, you must sync it between systems
+#REMOVE_LIST=/etc/pkgsync/pkg_remove.list
+
+# packages to install on all systems, you must sync it between systems
+#INSTALL_LIST=/etc/pkgsync/pkg_install.list
+
+# script that is ran when INSTALL_LIST is changed, can be used to sync it
+#FINISH_SCRIPT=/etc/pkgsync/pkg_finish.sh
+
+# directory to store temporary working files in
+#TMP_DIR=/tmp

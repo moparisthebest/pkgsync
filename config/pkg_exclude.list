@@ -1,0 +1,8 @@
+# these are packages installed on the local system that you
+# do not wish to share with the installed list
+
+# only helpful on laptops
+#xf86-input-synaptics
+
+# only needed for intel chipsets
+#xf86-video-intel
