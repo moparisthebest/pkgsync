@@ -21,13 +21,13 @@ grep -v '^#' "$REMOVE_LIST"    2>/dev/null | sort -u > "$TMP_DIR/pkg_remove.list
 grep -v '^#' "$INSTALL_LIST"   2>/dev/null | sort -u > "$TMP_DIR/pkg_install.list"   || true
 
 # get our explicitly installed packages, minus hardware-specific exclusions
-pacman -Q | awk '{print $1}' | sort | comm -23 - "$TMP_DIR/pkg_exclude.list" > "$TMP_DIR/mypkgs_with_exclusions.txt"
+pacman -Qq | sort | comm -23 - "$TMP_DIR/pkg_exclude.list" > "$TMP_DIR/mypkgs_with_exclusions.txt"
 
 # exclude packages to remove
 comm -23 "$TMP_DIR/mypkgs_with_exclusions.txt" "$TMP_DIR/pkg_remove.list" > "$TMP_DIR/mypkgs_with_exclusions_without_remove.txt"
 
-# list of packages to remove
-comm -12 "$TMP_DIR/mypkgs_with_exclusions.txt" "$TMP_DIR/pkg_remove.list" > "$TMP_DIR/pkg_toremove.list"
+# list of packages to remove, with our blacklist excluded
+comm -12 "$TMP_DIR/mypkgs_with_exclusions.txt" "$TMP_DIR/pkg_remove.list" | comm -23 - "$TMP_DIR/pkg_blacklist.list" > "$TMP_DIR/pkg_toremove.list"
 
 # combine our packages with shared installed list, excluding remove
 sort -u "$TMP_DIR/mypkgs_with_exclusions_without_remove.txt" "$TMP_DIR/pkg_install.list" | comm -23 - "$TMP_DIR/pkg_remove.list" > "$TMP_DIR/pkg_installed.list"
@@ -42,42 +42,45 @@ comm -23 "$TMP_DIR/pkg_installed.list" "$TMP_DIR/pkg_install.list" > "$TMP_DIR/p
 if [ -s "$TMP_DIR/pkg_toinstall.list" ]
 then
     yn=l
-    while [[ ! "$yn" =~ ^[YyNnAa]$ ]]
+    while [[ ! "$yn" =~ ^[YyNnAaQqBb]$ ]]
     do
-        read -p "Install new packages? (yes/no/list/abort)..." -n 1 yn
+        read -p "Install new packages? (yes/no/list/abort/blacklist)..." -n 1 yn
         echo
         [[ "$yn" =~ ^[Ll]$ ]] && cat "$TMP_DIR/pkg_toinstall.list"
     done
     [[ "$yn" =~ ^[Yy]$ ]] && pacman -S --needed --confirm - < "$TMP_DIR/pkg_toinstall.list"
-    [[ "$yn" =~ ^[Aa]$ ]] && exit 1
+    [[ "$yn" =~ ^[Bb]$ ]] && cat "$TMP_DIR/pkg_toinstall.list" >> "$BLACKLIST_LIST"
+    [[ "$yn" =~ ^[AaQq]$ ]] && exit 1
 fi
 
 # offer to remove packages
 if [ -s "$TMP_DIR/pkg_toremove.list" ]
 then
     yn=l
-    while [[ ! "$yn" =~ ^[YyNnAa]$ ]]
+    while [[ ! "$yn" =~ ^[YyNnAaQqBb]$ ]]
     do
-        read -p "Remove packages? (yes/no/list/abort)..." -n 1 yn
+        read -p "Remove packages? (yes/no/list/abort/blacklist)..." -n 1 yn
         echo
         [[ "$yn" =~ ^[Ll]$ ]] && cat "$TMP_DIR/pkg_toremove.list"
     done
     [[ "$yn" =~ ^[Yy]$ ]] && pacman -Ru --confirm - < "$TMP_DIR/pkg_toremove.list"
-    [[ "$yn" =~ ^[Aa]$ ]] && exit 1
+    [[ "$yn" =~ ^[Bb]$ ]] && cat "$TMP_DIR/pkg_toremove.list" >> "$BLACKLIST_LIST"
+    [[ "$yn" =~ ^[AaQq]$ ]] && exit 1
 fi
 
 # offer to update install list, if it changed
 if [ -s "$TMP_DIR/pkg_ourinstall.list" ]
 then
     yn=l
-    while [[ ! "$yn" =~ ^[YyNnAa]$ ]]
+    while [[ ! "$yn" =~ ^[YyNnAaQqEe]$ ]]
     do
-        read -p "Append packages unique to this computer to install list and run finish script? (yes/no/list/abort)..." -n 1 yn
+        read -p "Append packages unique to this computer to install list and run finish script? (yes/no/list/abort/exclude)..." -n 1 yn
         echo
         [[ "$yn" =~ ^[Ll]$ ]] && cat "$TMP_DIR/pkg_ourinstall.list"
     done
     [[ "$yn" =~ ^[Yy]$ ]] && cat "$TMP_DIR/pkg_ourinstall.list" >> "$INSTALL_LIST"
-    [[ "$yn" =~ ^[Aa]$ ]] && exit 1
+    [[ "$yn" =~ ^[Ee]$ ]] && cat "$TMP_DIR/pkg_ourinstall.list" >> "$EXCLUSION_LIST"
+    [[ "$yn" =~ ^[AaQq]$ ]] && exit 1
     [ -x "$FINISH_SCRIPT" ] && "$FINISH_SCRIPT"
 fi
 

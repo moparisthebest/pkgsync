@@ -1,5 +1,7 @@
 # these are packages in the installed list that
 # you explicitly do not want on this system
+# or packages in the remove list that you do
+# not want removed from this system
 
 # not acceptable for vegans
 #bison

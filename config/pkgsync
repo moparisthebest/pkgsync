@@ -7,6 +7,7 @@
 #EXCLUSION_LIST=/etc/pkgsync/pkg_exclude.list
 
 # packages in shared install list to not install on this system
+# or packages in shared remove list to not remove from this system
 #BLACKLIST_LIST=/etc/pkgsync/pkg_blacklist.list
 
 # packages to remove from all systems, you must sync it between systems
